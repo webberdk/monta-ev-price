@@ -233,6 +233,8 @@ $maks = $liste ? max(array_column($liste, 'pris')) : 1;
 $skala = $maks > 0 ? $maks : 1;
 $min  = $liste ? min(array_column($liste, 'pris')) : 0;
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+$prisdage = [];
+foreach ($liste as $t) $prisdage[date('Y-m-d', $t['ts'])][] = $t;
 ?><!doctype html>
 <html lang="da">
 <head>
@@ -254,22 +256,28 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-ap
 main{max-width:860px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:1.25rem;margin:0 0 2px}
 .sub{color:var(--ink2);margin:0 0 20px;font-size:.92rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
 .label{color:var(--ink2);font-size:.85rem}
 .big{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
-.mid{font-size:1.5rem;font-weight:650;font-variant-numeric:tabular-nums}
+.mid{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
 .unit{font-size:.9rem;color:var(--ink2);font-weight:400}
-.note{color:var(--muted);font-size:.85rem}
-.chart{position:relative;display:flex;align-items:flex-end;gap:2px;height:200px;padding-top:8px;border-bottom:1px solid var(--line)}
-.b{flex:1;min-width:3px;background:var(--bar);border-radius:4px 4px 0 0;position:relative;cursor:default}
-.b.past{background:var(--bar-past)} .b.now{background:var(--bar-now)} .b.cheap{background:var(--bar-cheap)}
-.b:hover{filter:brightness(1.1);outline:2px solid var(--ink);outline-offset:1px}
-.axis{display:flex;gap:2px;font-size:.72rem;color:var(--muted);margin-top:4px}
-.axis span{flex:1;min-width:3px;text-align:center;overflow:visible;white-space:nowrap}
+.note{color:var(--ink2);font-size:.85rem}
+.day-title{font-size:1rem;margin:20px 0 8px}
+.chart-scroll{overflow-x:auto;padding:4px 3px;scrollbar-width:thin}
+.chart{display:flex;gap:3px;min-width:720px;height:220px;border-bottom:1px solid var(--line)}
+.hour{flex:1;min-width:28px;padding:0;border:0;background:transparent;color:var(--ink2);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:stretch;position:relative}
+.plot{height:190px;display:flex;align-items:flex-end;position:relative}
+.b{width:100%;background:var(--bar);border-radius:4px 4px 0 0;display:block}
+.hour.past .b{background:var(--bar-past)} .hour.now .b{background:var(--bar-now)} .hour.cheap .b{background:var(--bar-cheap)}
+.hour:hover .b{filter:brightness(1.1)}
+.hour:focus-visible,.hour[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px}
+.hour-label{font-size:.7rem;padding-top:6px;white-space:nowrap}
+.marker{position:absolute;top:0;left:0;right:0;font-size:.65rem;font-weight:700;text-align:center}
+.selection{min-height:3.5em;padding:12px;background:var(--bg);border-radius:8px;margin-top:12px;font-size:.95rem}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--ink2);margin:10px 0 0}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:6px;font-size:.82rem;display:none;z-index:5;white-space:nowrap}
+.price-note{margin:4px 0 0;font-size:.9rem;color:var(--ink2)}
 details{margin-top:16px}
 summary{cursor:pointer;color:var(--accent)}
 table{width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums}
@@ -282,6 +290,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 .when{font-size:1.9rem;font-weight:700;letter-spacing:-.01em;line-height:1.2;margin:2px 0 4px}
 .warn{background:#fff4d6;color:#5c4400;border-radius:8px;padding:10px 12px;margin-bottom:16px}
 @media (prefers-color-scheme: dark){.warn{background:#3a3016;color:#f3dc9a}}
+@media(max-width:480px){.big,.mid{font-size:2rem}.grid .card{padding:12px}.unit{display:block;font-size:.8rem}.when{font-size:1.6rem}.chart{min-width:1056px}.hour{min-width:41px}.marker{font-size:.7rem}}
 </style>
 </head>
 <body>
@@ -297,8 +306,8 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
   <?php endif; ?>
   <?php if ($bedsteVindue): $slut = $bedsteVindue['start'] + 3 * 3600; ?>
   <div class="card hero">
-    <div class="label">Billigste 3 timer i træk</div>
-    <div class="when"><?= $h(ucfirst(dagNavn($bedsteVindue['start']))) ?> kl. <?= date('H:i', $bedsteVindue['start']) ?>–<?= date('H:i', $slut) ?></div>
+    <div class="label">Lad billigst · Billigste 3 timer i træk</div>
+    <div class="when"><?= $h(ucfirst(dagNavn($bedsteVindue['start']))) ?> kl. <?= date('H:i', $bedsteVindue['start']) ?>–<?= date('Y-m-d', $slut) !== date('Y-m-d', $bedsteVindue['start']) ? $h(dagNavn($slut)) . ' kl. ' : '' ?><?= date('H:i', $slut) ?></div>
     <div class="note">
       Gennemsnit <strong><?= kr($bedsteVindue['snit']) ?> kr/kWh</strong>
       <?php if ($aktuel !== null && $aktuel - $bedsteVindue['snit'] >= 0.01): ?>
@@ -330,21 +339,36 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 
   <div class="card">
     <div class="label">Timepris, kr/kWh</div>
-    <div class="chart" role="img" aria-label="Søjlediagram over ladepris time for time">
-      <?php foreach ($liste as $t):
+    <p class="price-note">Tryk på en time for at se prisen. Stryg til siden for flere timer, eller brug piletasterne.</p>
+    <?php foreach ($prisdage as $dato => $dagtimer): ?>
+    <h2 class="day-title"><?= $h(ucfirst(dagNavn($dagtimer[0]['ts']))) ?> · <?= date('d/m', $dagtimer[0]['ts']) ?></h2>
+    <div class="chart-scroll" tabindex="0" role="region" aria-label="<?= $h('Timepriser ' . dagNavn($dagtimer[0]['ts'])) ?>">
+      <div class="chart" role="group" aria-label="Vælg en time">
+      <?php foreach ($dagtimer as $t):
+        $erBilligst = $billigste && $t['ts'] === $billigste['ts'];
         $klasse = $t['fortid'] ? 'past' : ($t['nu'] ? 'now' : (iVindue($t['ts']) ? 'cheap' : ''));
-        $hoejde = max(4, round($t['pris'] / $skala * 100)); ?>
-        <div class="b <?= $klasse ?>" style="height:<?= $hoejde ?>%" data-tip="<?= $h(tid($t['ts']) . ': ' . kr($t['pris']) . ' kr/kWh') ?>"></div>
+        $status = [];
+        if ($t['nu']) $status[] = 'Nu';
+        if ($erBilligst) $status[] = 'Billigste time';
+        if (iVindue($t['ts'])) $status[] = 'Billigste 3 timer';
+        if ($t['fortid']) $status[] = 'Tidligere i dag';
+        $tekst = tid($t['ts']) . ': ' . kr($t['pris']) . ' kr/kWh' . ($status ? ' · ' . implode(' · ', $status) : '');
+        $hoejde = max(4, round($t['pris'] / $skala * 85)); ?>
+        <button type="button" class="hour <?= $klasse ?>" aria-pressed="false" aria-label="<?= $h($tekst) ?>" data-tip="<?= $h($tekst) ?>">
+          <span class="plot" aria-hidden="true">
+            <span class="marker"><?= $t['nu'] ? 'Nu' : ($erBilligst ? 'Lavest' : (iVindue($t['ts']) ? '★' : '')) ?></span>
+            <span class="b" style="height:<?= $hoejde ?>%"></span>
+          </span>
+          <span class="hour-label" aria-hidden="true"><?= date('H:i', $t['ts']) ?></span>
+        </button>
       <?php endforeach; ?>
+      </div>
     </div>
-    <div class="axis">
-      <?php foreach ($liste as $t): $time = (int)date('G', $t['ts']); ?>
-        <span><?= $time % 6 === 0 ? ($time === 0 ? $h(['søn','man','tir','ons','tor','fre','lør'][(int)date('w', $t['ts'])]) : date('H', $t['ts'])) : '' ?></span>
-      <?php endforeach; ?>
-    </div>
+    <div class="selection" role="status" aria-live="polite" aria-atomic="true">Vælg en time i grafen for at se pris og tidspunkt.</div>
+    <?php endforeach; ?>
     <div class="legend">
       <span><i style="background:var(--bar-now)"></i>Nu</span>
-      <span><i style="background:var(--bar-cheap)"></i>Billigste 3 timer</span>
+      <span><i style="background:var(--bar-cheap)"></i>★ Billigste 3 timer</span>
       <span><i style="background:var(--bar)"></i>Kommende</span>
       <span><i style="background:var(--bar-past)"></i>Tidligere i dag</span>
     </div>
@@ -360,30 +384,50 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
     <details>
       <summary>Vis som tabel</summary>
       <table>
-        <tr><th>Tidspunkt</th><th>kr/kWh</th></tr>
-        <?php foreach ($liste as $t): ?>
-          <tr class="<?= $t['fortid'] ? 'past' : ($t['nu'] ? 'now' : '') ?><?= iVindue($t['ts']) ? ' win' : '' ?>"><td><?= $h(tid($t['ts'])) ?></td><td><?= kr($t['pris']) ?></td></tr>
+        <tr><th scope="col">Tidspunkt</th><th scope="col">Status</th><th scope="col">kr/kWh</th></tr>
+        <?php foreach ($liste as $t):
+          $status = array_filter([$t['nu'] ? 'Nu' : null,
+              $billigste && $t['ts'] === $billigste['ts'] ? 'Billigste time' : null,
+              iVindue($t['ts']) ? 'Billigste 3 timer' : null]); ?>
+          <tr class="<?= $t['fortid'] ? 'past' : ($t['nu'] ? 'now' : '') ?><?= iVindue($t['ts']) ? ' win' : '' ?>"><td><?= $h(tid($t['ts'])) ?></td><td><?= $h(implode(' · ', $status)) ?></td><td><?= kr($t['pris']) ?></td></tr>
         <?php endforeach; ?>
       </table>
     </details>
   </div>
 <?php endif; ?>
 
-  <p class="note" style="margin-top:16px">
-    Prisen er beregnet ud fra Nord Pool-spotprisen (via Energinets Energi Data Service) og ECdrives prismodel, aflæst i Monta-appen.
-    Den kan afvige med få øre. Den pris, du betaler, er altid den, Monta-appen viser.
-  </p>
+  <p class="price-note">Den pris, du betaler, er altid den, Monta-appen viser.</p>
+  <details class="card">
+    <summary>Sådan beregnes prisen</summary>
+    <p>Vi bruger Nord Pool-spotprisen for <?= $h(PRISOMRAADE) ?> fra Energinets Energi Data Service. Fire kvarterpriser samles til et gennemsnit for hver time.</p>
+    <p>Spotprisen ganges med <?= $h(number_format(SPOT_FAKTOR, 4, ',', '.')) ?>, og derefter lægges et tillæg til for nettarif, afgifter og operatørens avance. Tillægget afhænger af tidspunkt og sæson.</p>
+    <p class="note">Beregningen følger ECdrives prismodel, aflæst i Monta-appen. Den beregnede pris kan afvige fra appens pris. Servicen er gratis og stadig i beta.</p>
+  </details>
 </main>
-<div id="tip"></div>
 <script nonce="<?= $nonce ?>">
-const tip=document.getElementById('tip');
-document.querySelectorAll('.b').forEach(b=>{
-  b.addEventListener('mousemove',e=>{tip.textContent=b.dataset.tip;tip.style.display='block';
-    const x=Math.min(e.clientX+12,innerWidth-tip.offsetWidth-8);tip.style.left=x+'px';tip.style.top=(e.clientY-36)+'px';});
-  b.addEventListener('mouseleave',()=>tip.style.display='none');
-  b.addEventListener('click',e=>{tip.textContent=b.dataset.tip;tip.style.display='block';
-    tip.style.left=Math.min(e.clientX,innerWidth-tip.offsetWidth-8)+'px';tip.style.top=(e.clientY-36)+'px';});
+const hours=[...document.querySelectorAll('.hour')];
+function selectHour(button){
+  hours.forEach(hour=>hour.setAttribute('aria-pressed',String(hour===button)));
+  const selection=button.closest('.chart-scroll').nextElementSibling;
+  if(selection) selection.textContent=button.dataset.tip;
+}
+hours.forEach(button=>{
+  button.addEventListener('click',()=>selectHour(button));
+  button.addEventListener('focus',()=>selectHour(button));
+  button.addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const index=hours.indexOf(button);
+    const next=event.key==='Home'?0:event.key==='End'?hours.length-1:Math.max(0,Math.min(hours.length-1,index+(event.key==='ArrowRight'?1:-1)));
+    hours[next].focus();
+  });
 });
+const current=hours.find(button=>button.classList.contains('now'));
+if(current){
+  selectHour(current);
+  const scroll=current.closest('.chart-scroll');
+  scroll.scrollLeft=current.getBoundingClientRect().left-scroll.getBoundingClientRect().left+scroll.scrollLeft-scroll.clientWidth/2+current.clientWidth/2;
+}
 </script>
 </body>
 </html>
