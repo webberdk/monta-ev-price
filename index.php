@@ -241,7 +241,7 @@ foreach ($liste as $t) $prisdage[date('Y-m-d', $t['ts'])][] = $t;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="300">
-<title>Ladepris Søagerparken</title>
+<title>Monta ladepriser Søagerparken</title>
 <style>
 :root{
   --bg:#f7f7f5; --card:#fff; --ink:#1b1b1a; --ink2:#5d5d58; --muted:#8a8a84; --line:#e6e6e1;
@@ -255,6 +255,7 @@ foreach ($liste as $t) $prisdage[date('Y-m-d', $t['ts'])][] = $t;
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:860px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:1.25rem;margin:0 0 2px}
+.section-title{font-size:1.15rem;margin:0 0 8px}
 .sub{color:var(--ink2);margin:0 0 20px;font-size:.92rem}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -295,8 +296,8 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 </head>
 <body>
 <main>
-  <h1>Ladepris – Monta</h1>
-  <p class="sub">Gratis service · Stadig i beta</p>
+  <h1>Monta ladepriser Søagerparken</h1>
+  <p class="sub">OBS: Denne side henter priser fra Andre kilder og prisen kan varier med nogle få øre.</p>
 
 <?php if (!$liste): ?>
   <div class="warn">Kunne ikke hente spotpriser lige nu. Prøv igen om lidt.</div>
@@ -338,10 +339,10 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
   </div>
 
   <div class="card">
-    <div class="label">Timepris, kr/kWh</div>
+    <h2 class="section-title">Timepris, kr/kWh</h2>
     <p class="price-note">Tryk på en time for at se prisen. Stryg til siden for flere timer, eller brug piletasterne.</p>
     <?php foreach ($prisdage as $dato => $dagtimer): ?>
-    <h2 class="day-title"><?= $h(ucfirst(dagNavn($dagtimer[0]['ts']))) ?> · <?= date('d/m', $dagtimer[0]['ts']) ?></h2>
+    <h3 class="day-title"><?= $h(ucfirst(dagNavn($dagtimer[0]['ts']))) ?> · <?= date('d/m', $dagtimer[0]['ts']) ?></h3>
     <div class="chart-scroll" tabindex="0" role="region" aria-label="<?= $h('Timepriser ' . dagNavn($dagtimer[0]['ts'])) ?>">
       <div class="chart" role="group" aria-label="Vælg en time">
       <?php foreach ($dagtimer as $t):
