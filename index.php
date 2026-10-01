@@ -287,7 +287,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 <body>
 <main>
   <h1>Ladepris – Monta</h1>
-  <p class="sub"><?= $h(STED) ?> · Dynamisk pris (ECdrive) · spotpris <?= $h(PRISOMRAADE) ?> + nettarif og afgifter</p>
+  <p class="sub">Gratis service · Stadig i beta</p>
 
 <?php if (!$liste): ?>
   <div class="warn">Kunne ikke hente spotpriser lige nu. Prøv igen om lidt.</div>
