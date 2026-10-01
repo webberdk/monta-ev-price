@@ -43,6 +43,10 @@ function rensPriser($records, string $tidFelt, string $prisFelt, float $divisor)
         $t = $r[$tidFelt] ?? null;
         $v = $r[$prisFelt] ?? null;
         if (!is_string($t) || !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/', $t)) continue;
+        $format = strlen($t) === 16 ? '!Y-m-d\TH:i' : '!Y-m-d\TH:i:s';
+        $dato = DateTimeImmutable::createFromFormat($format, $t, new DateTimeZone('UTC'));
+        $fejl = DateTimeImmutable::getLastErrors();
+        if (!$dato || ($fejl && ($fejl['warning_count'] || $fejl['error_count']))) continue;
         if (!is_int($v) && !is_float($v)) continue;
         $spot = $v / $divisor;
         if (!is_finite($spot) || abs($spot) > 100) continue; // urimelige værdier (kr/kWh) afvises
@@ -59,21 +63,30 @@ function cacheSti(): string {
     if (is_dir($mappe) && !is_file($mappe . '/.htaccess')) {
         @file_put_contents($mappe . '/.htaccess', "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Deny from all\n</IfModule>\n");
     }
-    return $mappe . '/spot-' . PRISOMRAADE . '.json';
+    // Ny fil: den tidligere cache indeholdt lokal tid og kan ikke bruges som UTC.
+    return $mappe . '/spot-' . PRISOMRAADE . '-utc.json';
 }
 
 function hentSpotpriser(): array {
     $cacheFil = cacheSti();
-    $cache = is_file($cacheFil)
-        ? rensPriser(json_decode((string)@file_get_contents($cacheFil), true), 't', 'spot', 1)
-        : [];
-    if ($cache && time() - (int)@filemtime($cacheFil) < CACHE_SEKUNDER) return $cache;
+    $gemt = is_file($cacheFil) ? json_decode((string)@file_get_contents($cacheFil), true) : null;
+    $cache = rensPriser($gemt['priser'] ?? null, 't', 'spot', 1);
+    $hentet = $gemt['hentet'] ?? null;
+    if (!is_int($hentet) || $hentet <= 0 || $hentet > time()) {
+        $cache = [];
+        $hentet = null;
+    }
+    $foraeldet = $hentet === null || time() - $hentet >= CACHE_SEKUNDER;
+    // mtime styrer næste forsøg; hentet bevarer tidspunktet for faktisk API-succes.
+    if ($cache && time() - (int)@filemtime($cacheFil) < CACHE_SEKUNDER) {
+        return ['priser' => $cache, 'hentet' => $hentet, 'foraeldet' => $foraeldet];
+    }
 
     $url = 'https://api.energidataservice.dk/dataset/DayAheadPrices?' . http_build_query([
         'start'   => date('Y-m-d', strtotime('-1 day')),
         'filter'  => json_encode(['PriceArea' => [PRISOMRAADE]]),
-        'columns' => 'TimeDK,DayAheadPriceDKK',
-        'sort'    => 'TimeDK asc',
+        'columns' => 'TimeUTC,DayAheadPriceDKK',
+        'sort'    => 'TimeUTC asc',
         'limit'   => 0,
     ]);
 
@@ -103,16 +116,18 @@ function hentSpotpriser(): array {
     }
 
     $json = is_string($svar) ? json_decode($svar, true) : null;
-    $priser = rensPriser($json['records'] ?? null, 'TimeDK', 'DayAheadPriceDKK', 1000); // DKK/MWh -> kr/kWh
+    $priser = rensPriser($json['records'] ?? null, 'TimeUTC', 'DayAheadPriceDKK', 1000); // DKK/MWh -> kr/kWh
 
     if ($priser) {
-        @file_put_contents($cacheFil, json_encode($priser), LOCK_EX);
-        return $priser;
+        $hentet = time();
+        $data = ['priser' => $priser, 'hentet' => $hentet];
+        @file_put_contents($cacheFil, json_encode($data), LOCK_EX);
+        return $data + ['foraeldet' => false];
     }
     // Fejl hos Energinet: brug gammel cache og vent 2 min. før næste forsøg,
     // så siden ikke hænger på timeout ved hvert eneste besøg.
     if ($cache) @touch($cacheFil, time() - CACHE_SEKUNDER + 120);
-    return $cache;
+    return ['priser' => $cache, 'hentet' => $hentet, 'foraeldet' => true];
 }
 
 function tillaeg(int $ts): float {
@@ -125,27 +140,47 @@ function tillaeg(int $ts): float {
     return $v;
 }
 
+/** Kun komplette timer med fire forskellige UTC-kvarterer må få en timepris. */
+function samlTimepriser(array $kvarterer, int $nu): array {
+    $idagStart = strtotime(date('Y-m-d', $nu) . ' 00:00:00');
+    $timer = [];
+    $konflikter = [];
+    foreach ($kvarterer as $k) {
+        $ts = strtotime($k['t'] . 'Z');
+        if ($ts === false || $ts < $idagStart || $ts % 900 !== 0) continue;
+        $start = intdiv($ts, 3600) * 3600;
+        if (isset($timer[$start][$ts]) && $timer[$start][$ts] !== $k['spot']) {
+            $konflikter[$start] = true;
+        }
+        $timer[$start][$ts] = $k['spot'];
+    }
+    ksort($timer, SORT_NUMERIC);
+    $liste = [];
+    foreach ($timer as $ts => $kvarterpriser) {
+        if (count($kvarterpriser) !== 4 || isset($konflikter[$ts])) continue;
+        $spot = array_sum($kvarterpriser) / 4;
+        $liste[] = ['ts' => $ts, 'spot' => round($spot, 4),
+                    'pris' => round($spot * SPOT_FAKTOR + tillaeg($ts), 2),
+                    'nu' => $nu >= $ts && $nu < $ts + 3600, 'fortid' => $ts + 3600 <= $nu];
+    }
+    return $liste;
+}
+
+function billigsteVindue(array $kommende): ?array {
+    $bedste = null;
+    for ($i = 0; $i + 2 < count($kommende); $i++) {
+        if ($kommende[$i+1]['ts'] !== $kommende[$i]['ts'] + 3600 ||
+            $kommende[$i+2]['ts'] !== $kommende[$i]['ts'] + 7200) continue;
+        $snit = ($kommende[$i]['pris'] + $kommende[$i+1]['pris'] + $kommende[$i+2]['pris']) / 3;
+        if (!$bedste || $snit < $bedste['snit']) $bedste = ['start' => $kommende[$i]['ts'], 'snit' => $snit];
+    }
+    return $bedste;
+}
+
 /* --- Saml kvarterpriser til timer --------------------------------------- */
-$kvarterer = hentSpotpriser();
+$spotdata = hentSpotpriser();
 $nu = time();
-$idagStart = strtotime('today');
-
-$timer = [];      // 'Y-m-d H' => [sum af spot, antal kvarterer]
-foreach ($kvarterer as $k) {
-    $ts = strtotime($k['t']);
-    if ($ts < $idagStart) continue;
-    $key = date('Y-m-d H', $ts);
-    $timer[$key][0] = ($timer[$key][0] ?? 0) + $k['spot'];
-    $timer[$key][1] = ($timer[$key][1] ?? 0) + 1;
-}
-
-$liste = [];
-foreach ($timer as $key => [$sum, $n]) {
-    $ts = strtotime($key . ':00');
-    $liste[] = ['ts' => $ts, 'spot' => round($sum / $n, 4), 'pris' => round($sum / $n * SPOT_FAKTOR + tillaeg($ts), 2),
-                'nu' => date('Y-m-d H', $nu) === $key, 'fortid' => $ts + 3600 <= $nu];
-}
-
+$liste = samlTimepriser($spotdata['priser'], $nu);
 $aktuel = null;
 foreach ($liste as $t) if ($t['nu']) $aktuel = $t['pris'];
 
@@ -154,11 +189,7 @@ $billigste = null;
 foreach ($kommende as $h) if (!$billigste || $h['pris'] < $billigste['pris']) $billigste = $h;
 
 // Billigste 3 sammenhængende timer fremover
-$bedsteVindue = null;
-for ($i = 0; $i + 2 < count($kommende); $i++) {
-    $snit = ($kommende[$i]['pris'] + $kommende[$i+1]['pris'] + $kommende[$i+2]['pris']) / 3;
-    if (!$bedsteVindue || $snit < $bedsteVindue['snit']) $bedsteVindue = ['start' => $kommende[$i]['ts'], 'snit' => $snit];
-}
+$bedsteVindue = billigsteVindue($kommende);
 
 $sidsteTs = $liste ? end($liste)['ts'] : null;
 
@@ -180,6 +211,8 @@ if (($_GET['format'] ?? '') === 'json') {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'sted' => STED, 'enhed' => 'DKK/kWh', 'aktuel' => $aktuel,
+        'opdateret' => $spotdata['hentet'] !== null ? date('c', $spotdata['hentet']) : null,
+        'foraeldet' => $spotdata['foraeldet'],
         'timer' => array_map(fn($h) => ['tid' => date('c', $h['ts']), 'spot' => $h['spot'], 'pris' => $h['pris']], $liste),
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
@@ -194,7 +227,7 @@ function dagNavn(int $ts): string {
     if (date('Y-m-d', $ts) === date('Y-m-d', strtotime('tomorrow'))) return 'i morgen';
     return $dage[(int)date('w', $ts)];
 }
-function tid(int $ts): string { return dagNavn($ts) . ' kl. ' . date('H:i', $ts); }
+function tid(int $ts): string { return dagNavn($ts) . ' kl. ' . date('H:i T', $ts); }
 
 $maks = $liste ? max(array_column($liste, 'pris')) : 1;
 $skala = $maks > 0 ? $maks : 1;
@@ -259,10 +292,13 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 <?php if (!$liste): ?>
   <div class="warn">Kunne ikke hente spotpriser lige nu. Prøv igen om lidt.</div>
 <?php else: ?>
+  <?php if ($spotdata['foraeldet']): ?>
+  <div class="warn">Spotpriserne kunne ikke opdateres. Der vises forældede data fra <?= $h(date('d-m-Y H:i', $spotdata['hentet'])) ?>.</div>
+  <?php endif; ?>
   <?php if ($bedsteVindue): $slut = $bedsteVindue['start'] + 3 * 3600; ?>
   <div class="card hero">
     <div class="label">Billigste 3 timer i træk</div>
-    <div class="when"><?= $h(ucfirst(dagNavn($bedsteVindue['start']))) ?> kl. <?= date('H', $bedsteVindue['start']) ?>.00–<?= date('H', $slut) ?>.00</div>
+    <div class="when"><?= $h(ucfirst(dagNavn($bedsteVindue['start']))) ?> kl. <?= date('H:i T', $bedsteVindue['start']) ?>–<?= date('H:i T', $slut) ?></div>
     <div class="note">
       Gennemsnit <strong><?= kr($bedsteVindue['snit']) ?> kr/kWh</strong>
       <?php if ($aktuel !== null && $aktuel - $bedsteVindue['snit'] >= 0.01): ?>
@@ -281,7 +317,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
     <div class="card">
       <div class="label">Pris lige nu</div>
       <div class="big"><?= kr($aktuel) ?> <span class="unit">kr/kWh</span></div>
-      <div class="note">Kl. <?= date('H') ?>.00–<?= date('H', strtotime('+1 hour')) ?>.00 · opdateret <?= date('H:i') ?></div>
+      <div class="note">Kl. <?= date('H:i T', intdiv($nu, 3600) * 3600) ?>–<?= date('H:i T', intdiv($nu, 3600) * 3600 + 3600) ?> · opdateret <?= $spotdata['hentet'] !== null ? $h(date('d-m-Y H:i', $spotdata['hentet'])) : '–' ?></div>
     </div>
     <?php if ($billigste): ?>
     <div class="card">
