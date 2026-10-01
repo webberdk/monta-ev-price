@@ -241,7 +241,8 @@ foreach ($liste as $t) $prisdage[date('Y-m-d', $t['ts'])][] = $t;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="300">
-<title>Monta ladepriser Søagerparken</title>
+<title>Monta Ladepriser Søagerparken</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
 :root{
   --bg:#f7f7f5; --card:#fff; --ink:#1b1b1a; --ink2:#5d5d58; --muted:#8a8a84; --line:#e6e6e1;
@@ -296,7 +297,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 </head>
 <body>
 <main>
-  <h1>Monta ladepriser Søagerparken</h1>
+  <h1>Monta Ladepriser Søagerparken</h1>
   <p class="sub">OBS: Denne side henter priser fra Andre kilder. Den viste pris, kan varier med nogle få øre.</p>
 
 <?php if (!$liste): ?>
