@@ -297,7 +297,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
 <body>
 <main>
   <h1>Monta ladepriser Søagerparken</h1>
-  <p class="sub">OBS: Denne side henter priser fra Andre kilder og prisen kan varier med nogle få øre.</p>
+  <p class="sub">OBS: Denne side henter priser fra Andre kilder. Den viste prisen kan varier med nogle få øre.</p>
 
 <?php if (!$liste): ?>
   <div class="warn">Kunne ikke hente spotpriser lige nu. Prøv igen om lidt.</div>
