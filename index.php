@@ -227,7 +227,7 @@ function dagNavn(int $ts): string {
     if (date('Y-m-d', $ts) === date('Y-m-d', strtotime('tomorrow'))) return 'i morgen';
     return $dage[(int)date('w', $ts)];
 }
-function tid(int $ts): string { return dagNavn($ts) . ' kl. ' . date('H:i T', $ts); }
+function tid(int $ts): string { return dagNavn($ts) . ' kl. ' . date('H:i', $ts); }
 
 $maks = $liste ? max(array_column($liste, 'pris')) : 1;
 $skala = $maks > 0 ? $maks : 1;
@@ -298,7 +298,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
   <?php if ($bedsteVindue): $slut = $bedsteVindue['start'] + 3 * 3600; ?>
   <div class="card hero">
     <div class="label">Billigste 3 timer i træk</div>
-    <div class="when"><?= $h(ucfirst(dagNavn($bedsteVindue['start']))) ?> kl. <?= date('H:i T', $bedsteVindue['start']) ?>–<?= date('H:i T', $slut) ?></div>
+    <div class="when"><?= $h(ucfirst(dagNavn($bedsteVindue['start']))) ?> kl. <?= date('H:i', $bedsteVindue['start']) ?>–<?= date('H:i', $slut) ?></div>
     <div class="note">
       Gennemsnit <strong><?= kr($bedsteVindue['snit']) ?> kr/kWh</strong>
       <?php if ($aktuel !== null && $aktuel - $bedsteVindue['snit'] >= 0.01): ?>
@@ -317,7 +317,7 @@ tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
     <div class="card">
       <div class="label">Pris lige nu</div>
       <div class="big"><?= kr($aktuel) ?> <span class="unit">kr/kWh</span></div>
-      <div class="note">Kl. <?= date('H:i T', intdiv($nu, 3600) * 3600) ?>–<?= date('H:i T', intdiv($nu, 3600) * 3600 + 3600) ?> · opdateret <?= $spotdata['hentet'] !== null ? $h(date('d-m-Y H:i', $spotdata['hentet'])) : '–' ?></div>
+      <div class="note">Kl. <?= date('H:i', intdiv($nu, 3600) * 3600) ?>–<?= date('H:i', intdiv($nu, 3600) * 3600 + 3600) ?> · opdateret <?= $spotdata['hentet'] !== null ? $h(date('d-m-Y H:i', $spotdata['hentet'])) : '–' ?></div>
     </div>
     <?php if ($billigste): ?>
     <div class="card">
