@@ -1,0 +1,54 @@
+
+:root{
+  --bg:#f7f7f5; --card:#fff; --ink:#1b1b1a; --ink2:#5d5d58; --muted:#8a8a84; --line:#e6e6e1;
+  --bar:#9cc0e6; --bar-past:#dcdcd7; --bar-now:#1d5fae; --bar-cheap:#2e8540; --accent:#1d5fae;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#141413; --card:#1e1e1c; --ink:#f0f0ec; --ink2:#b4b4ad; --muted:#85857e; --line:#2f2f2c;
+         --bar:#3f6c9c; --bar-past:#3a3a37; --bar-now:#8ab8ef; --bar-cheap:#6cc27c; --accent:#8ab8ef; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.25rem;margin:0 0 2px}
+.section-title{font-size:1.15rem;margin:0 0 8px}
+.sub{color:var(--ink2);margin:0 0 20px;font-size:.92rem}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.label{color:var(--ink2);font-size:.85rem}
+.big{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.mid{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.unit{font-size:.9rem;color:var(--ink2);font-weight:400}
+.note{color:var(--ink2);font-size:.85rem}
+.day-title{font-size:1rem;margin:20px 0 8px}
+.chart-scroll{overflow-x:auto;padding:4px 3px;scrollbar-width:thin}
+.chart{display:flex;gap:3px;min-width:720px;height:220px;border-bottom:1px solid var(--line)}
+.hour{flex:1;min-width:28px;padding:0;border:0;background:transparent;color:var(--ink2);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:stretch;position:relative}
+.plot{height:190px;display:flex;align-items:flex-end;position:relative}
+.b{width:100%;background:var(--bar);border-radius:4px 4px 0 0;display:block}
+.hour.past .b{background:var(--bar-past)} .hour.now .b{background:var(--bar-now)} .hour.cheap .b{background:var(--bar-cheap)}
+.hour:hover .b{filter:brightness(1.1)}
+.hour:focus-visible,.hour[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px}
+.hour-label{font-size:.7rem;padding-top:6px;white-space:nowrap}
+.marker{position:absolute;top:0;left:0;right:0;font-size:.65rem;font-weight:700;text-align:center}
+.selection{min-height:3.5em;padding:12px;background:var(--bg);border-radius:8px;margin-top:12px;font-size:.95rem}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--ink2);margin:10px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.price-note{margin:4px 0 0;font-size:.9rem;color:var(--ink2)}
+details{margin-top:16px}
+summary{cursor:pointer;color:var(--accent)}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}
+td:last-child,th:last-child{text-align:right}
+tr.now td{font-weight:700}
+tr.past td{color:var(--muted)}
+tr.win td{background:color-mix(in srgb,var(--bar-cheap) 16%,transparent)}
+.hero{margin-bottom:12px;border-left:4px solid var(--bar-cheap)}
+.when{font-size:1.9rem;font-weight:700;letter-spacing:-.01em;line-height:1.2;margin:2px 0 4px}
+.warn{background:#fff4d6;color:#5c4400;border-radius:8px;padding:10px 12px;margin-bottom:16px}
+@media (prefers-color-scheme: dark){.warn{background:#3a3016;color:#f3dc9a}}
+@media(max-width:480px){.big,.mid{font-size:2rem}.grid .card{padding:12px}.unit{display:block;font-size:.8rem}.when{font-size:1.6rem}.chart{min-width:1056px}.hour{min-width:55px}.marker{font-size:.7rem}}
+
+.chart{height:315px;min-width:1440px;gap:5px}.hour{min-width:55px}.hour-label{font-size:14px}.marker{font-size:12px}.weather{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:8px;font-size:14px;font-variant-numeric:tabular-nums}.weather-icon{font-size:22px}.weather-small{font-size:12px}.table-scroll{overflow-x:auto}th,td{white-space:nowrap;font-size:14px}.note,.label,.legend{font-size:14px}a{color:var(--accent)}.plot{height:180px;flex-shrink:0}.missing{height:4px;background:var(--line)}.b.negative{background:#b56caa}.price-value{font-size:12px;text-align:center;margin-bottom:3px}.forecast-note{margin-top:16px}.weather-only{border-left:4px solid var(--accent)}
+
+.weather-small{white-space:nowrap}.weather-icon{height:28px}.weather-icon img{display:block}@media(prefers-color-scheme:dark){.weather-icon img{filter:invert(1)}}
